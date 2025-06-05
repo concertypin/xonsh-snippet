@@ -1,0 +1,59 @@
+"""
+xontrib for hooking .bat file execution and running them through cmd.exe
+"""
+import os
+import re
+from xonsh.events import events
+import shlex
+
+
+def transform_bat_command(cmd, **kwargs):
+    """
+    Transform .bat file execution to cmd.exe call
+    """
+    if len(cmd) <= 4:
+        return cmd
+    # Check if command ends with .bat (with optional arguments)
+    first_naive=cmd.split(" ")[0]
+    for i in "!@#$%^&*=[];:'\"\\,<>`~":
+        if i in first_naive:
+            #maybe using xonsh-specific syntax
+            return cmd
+
+    args=shlex.split(cmd)
+    if args[0].endswith(".bat"):
+        bat_file = args[0]
+        bat_args = args[1:]
+        # Get the absolute path first
+        abs_bat_file = os.path.abspath(bat_file)
+        # Build the command
+        cmd_parts = ['cmd.exe', '/c']
+        # Add the bat file with wslpath conversion
+        cmd_parts.append(f'$(wslpath -w "{abs_bat_file}")')
+        new_cmd = ' '.join(cmd_parts+bat_args)
+        return new_cmd
+    # Return original command if not a .bat file
+    return cmd
+
+def transform_bat_command_trycatch(cmd,**kwargs):
+    try:
+        r=transform_bat_command(cmd,kwargs=kwargs)
+        if r is None:
+            return cmd
+        else:
+            return r
+    except:
+        return cmd
+
+def _load_xontrib_(xsh, **kwargs):
+    """
+    Load the xontrib
+    """
+    # Register the transform command hook
+    events.on_transform_command(transform_bat_command_trycatch)
+def _unload_xontrib_(xsh, **kwargs):
+    """
+    Unload the xontrib
+    """
+    # Unregister the hook
+    events.on_transform_command.discard(transform_bat_command_trycatch)
