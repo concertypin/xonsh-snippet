@@ -1,0 +1,42 @@
+#!/usr/bin/env xonsh
+"""
+xontrib for hooking so that Windows paths can be worked in WSL
+It replaces Windows paths with their WSL equivalents regardless of the command
+It checks args's Windowsness by checking its prefix
+So, it might not work with multi-drive PC
+But I don't have disk so that is someone-else's-problem
+It's pretty simple to support that, right?
+"""
+import re
+import shlex
+
+ORIGIN="C:\\Users\\PC"
+
+def transform_cmd_command(cmd, **kwargs):
+    # Check if command ends with .bat (with optional arguments)
+    if len(cmd) < len(ORIGIN):
+        return cmd
+    args=shlex.split(cmd)
+    found_winpath=[]
+    for i in args:
+        if i.startswith(ORIGIN):
+            # Whao, it seems windows path. First we'll save it for regexing.
+            found_winpath.append(i)
+    resp=cmd
+    for i in found_winpath:
+        mntc=$(wslpath @(i)).strip()
+        resp=resp.replace(i,mntc)
+    return resp
+
+def _load_xontrib_(xsh, **kwargs):
+    """
+    Load the xontrib
+    """
+    # Register the transform command hook
+    events.on_transform_command(transform_cmd_command)
+def _unload_xontrib_(xsh, **kwargs):
+    """
+    Unload the xontrib
+    """
+    # Unregister the hook
+    events.on_transform_command.discard(transform_cmd_command)
